@@ -6,12 +6,9 @@ from os import path
 from threading import Thread
 
 port_number = 8080
-certfile_postion = "./server.pem"
-plist_url = "itms-services://?action=download-manifest&url=https://gitee.com/suisr/PlistServer/raw/master/ipa.plist"
-save_dir = path.expanduser('./ipa')
-if not path.exists(save_dir):
-	os.makedirs(save_dir)
-	
+save_dir = path.expanduser('.')
+plist_url = "itms-services://?action=download-manifest&url=https://gitee.com/suisr/PlistServer/raw/master/universal.plist"
+
 httpd = None
 def startServer(port):
     Handler = http.server.SimpleHTTPRequestHandler
@@ -52,14 +49,16 @@ def main():
 				console.hud_alert('导入失败！','error',1)
 			start(port_number)
 			if httpd:
-				webbrowser.open(plist_url)
+				webbrowser.open(plist_url)				
 			try:
 				finish = console.alert(file_name, '\n正在安装…请返回桌面查看进度…\n\n安装完成后请返回点击已完成','已完成', hide_cancel_button=False)
 				if finish == 1:
+					os.remove(dstpath)
 					stop()
 					print("Server stopped")
 			except:
 				 print("Cancelled")
+				 os.remove(dstpath)
 				 stop()
 				 appex.finish()
 		else:
