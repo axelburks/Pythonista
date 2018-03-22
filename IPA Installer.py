@@ -6,8 +6,9 @@ from os import path
 from threading import Thread
 
 port_number = 8080
-save_dir = path.expanduser('.')
 plist_url = "itms-services://?action=download-manifest&url=https://gitee.com/suisr/PlistServer/raw/master/universal.plist"
+save_dir = path.expanduser('~/Documents')
+os.chdir(save_dir)
 
 httpd = None
 def startServer(port):
