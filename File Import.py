@@ -306,8 +306,8 @@ def file_import(get_path):
 	elif re.match(r'^.*\.\w+$', file_loc):
 		file_save(get_path, file_loc)
 	else:
-		new_file_name = console.input_alert('文件名','文件格式: ' + file_ext,file_pure_name,'确认', hide_cancel_button=True)
-		dstpath = os.path.join(file_loc, new_file_name + file_ext)
+		dstpath = os.path.join(file_loc, file_name)
+		new_file_name = file_pure_name
 		while(os.path.exists(dstpath)):
 			try:
 				result = console.alert('文件名已存在',new_file_name + file_ext,'重命名','覆盖', hide_cancel_button=False)
