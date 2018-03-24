@@ -105,7 +105,7 @@ class TreeDialogController (object):
 		self.table_view.tint_color = 'gray'
 		self.view = ui.View(frame=self.table_view.frame)
 		self.view.add_subview(self.table_view)
-		self.view.name = '请选择存储位置'
+		self.view.name = 'Choose Location'
 		self.busy_view = ui.View(frame=self.view.bounds, flex='WH', background_color=(0, 0, 0, 0.35))
 		hud = ui.View(frame=(self.view.center.x - 50, self.view.center.y - 50, 100, 100))
 		hud.background_color = (0, 0, 0, 0.7)
@@ -120,7 +120,6 @@ class TreeDialogController (object):
 		self.busy_view.alpha = 0.0
 		self.view.add_subview(self.busy_view)
 		self.done_btn = ui.ButtonItem(title='Done', action=self.done_action)
-		self.view.right_button_items = [self.done_btn]
 		self.done_btn.enabled = False
 		self.root_node = root_node
 		self.icloud_node = icloud_node
@@ -268,7 +267,7 @@ class TreeDialogController (object):
 	def done_action(self, sender):
 		self.selected_entries = [self.flat_entries[i[1]] for i in self.table_view.selected_rows if self.flat_entries[i[1]].enabled]
 		self.view.close()
-
+	
 def file_picker_dialog(title=None, root_dir=None, multiple=False, select_dirs=False, file_pattern=None, show_icloud=False, show_size=True):
 	if root_dir is None:
 		root_dir = os.path.expanduser('~/Documents')
@@ -295,12 +294,12 @@ def file_picker_dialog(title=None, root_dir=None, multiple=False, select_dirs=Fa
 def file_save(get_path, dstpath):
 	try:
 		shutil.copy(get_path, dstpath)
-		console.hud_alert('导入成功！','',1)
+		console.hud_alert('Success!','',1)
 		appex.finish()
 		exit()
 	except Exception as eer:
 		print(eer)
-		console.hud_alert('导入失败！','error',1)
+		console.hud_alert('Failed!','error',1)
 
 def file_import(get_path):
 	file_name = os.path.basename(get_path)
@@ -318,9 +317,9 @@ def file_import(get_path):
 		new_file_name = file_pure_name
 		while(os.path.exists(dstpath)):
 			try:
-				result = console.alert('文件名已存在',new_file_name + file_ext,'重命名','覆盖', hide_cancel_button=False)
+				result = console.alert('Duplicated File Name',new_file_name + file_ext,'Rename','Replace', hide_cancel_button=False)
 				if result == 1:
-					new_file_name = console.input_alert('重命名',new_file_name + file_ext,new_file_name,'确认', hide_cancel_button=True)
+					new_file_name = console.input_alert('Rename',new_file_name + file_ext,new_file_name,'Done', hide_cancel_button=True)
 					dstpath = os.path.join(file_loc, new_file_name + file_ext)
 					if not os.path.exists(dstpath):
 						break
@@ -337,11 +336,11 @@ def main():
 			get_path = appex.get_file_path()
 			file_import(get_path)
 		else:
-			console.hud_alert('非文件无法导入', 'error', 2)
+			console.hud_alert('Not Supported File Types!', 'error', 2)
 			appex.finish()
 			exit()
 	else:
-		console.hud_alert('请在分享扩展中打开本脚本','error',2)
+		console.hud_alert('Please Run on Extension','error',2)
 		exit()
 
 if __name__ == '__main__':
