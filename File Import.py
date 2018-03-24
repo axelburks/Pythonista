@@ -26,8 +26,9 @@ class TreeNode (object):
 		self.title = ''
 		self.subtitle = ''
 		self.icon_name = None
-		self.level = 0
+		self.level = 1
 		self.enabled = True
+		self.subnode = True
 
 	def expand_children(self):
 		self.expanded = True
@@ -79,6 +80,7 @@ class FileTreeNode (TreeNode):
 			return
 		files = os.listdir(self.path)
 		children = []
+		
 		for filename in files:
 			if filename.startswith('.'):
 				continue
@@ -87,7 +89,7 @@ class FileTreeNode (TreeNode):
 			node.level = self.level + 1
 			children.append(node)
 		self.expanded = True
-		self.children = sorted(children, key=attrgetter('leaf', 'cmp_title'))
+		self.children = sorted(children, key=attrgetter('subnode', 'leaf', 'cmp_title'))
 
 class TreeDialogController (object):
 	def __init__(self, root_node, allow_multi=False, async_mode=False):
@@ -99,11 +101,11 @@ class TreeDialogController (object):
 		self.table_view.data_source = self
 		self.table_view.delegate = self
 		self.table_view.flex = 'WH'
-		self.table_view.allows_multiple_selection = True
+		self.table_view.allows_multiple_selection = allow_multi
 		self.table_view.tint_color = 'gray'
 		self.view = ui.View(frame=self.table_view.frame)
 		self.view.add_subview(self.table_view)
-		self.view.name = root_node.title
+		self.view.name = '请选择存储位置'
 		self.busy_view = ui.View(frame=self.view.bounds, flex='WH', background_color=(0, 0, 0, 0.35))
 		hud = ui.View(frame=(self.view.center.x - 50, self.view.center.y - 50, 100, 100))
 		hud.background_color = (0, 0, 0, 0.7)
@@ -118,8 +120,7 @@ class TreeDialogController (object):
 		self.busy_view.alpha = 0.0
 		self.view.add_subview(self.busy_view)
 		self.done_btn = ui.ButtonItem(title='Done', action=self.done_action)
-		if self.allow_multi:
-			self.view.right_button_items = [self.done_btn]
+		self.view.right_button_items = [self.done_btn]
 		self.done_btn.enabled = False
 		self.root_node = root_node
 		self.entries = []
@@ -132,9 +133,12 @@ class TreeDialogController (object):
 			self.expand_root()
 
 	def expand_root(self):
+		tree = []
+		self.root_node.level = 1
+		tree.append(self.root_node)
 		self.root_node.expand_children()
 		self.set_busy(False)
-		self.entries = self.root_node.children
+		self.entries = tree + self.root_node.children
 		self.flat_entries = self.entries
 		self.table_view.reload()
 	
@@ -249,10 +253,7 @@ class TreeDialogController (object):
 	def update_done_btn(self):
 		'''Deactivate the done button when nothing is selected'''
 		selected = [self.flat_entries[i[1]] for i in self.table_view.selected_rows if self.flat_entries[i[1]].enabled]
-		if selected and not self.allow_multi:
-			self.done_action(None)
-		else:
-			self.done_btn.enabled = len(selected) > 0
+		self.done_btn.enabled = len(selected) > 0
 
 	def set_busy(self, flag):
 		'''Show/hide spinner overlay'''
@@ -297,7 +298,7 @@ def file_import(get_path):
 	file_name = os.path.basename(get_path)
 	file_pure_name = os.path.splitext(file_name)[0]
 	file_ext = os.path.splitext(file_name)[-1]
-	file_loc = file_picker_dialog('选择存储位置', root_dir=os.path.expanduser('~/Documents'), multiple=False, select_dirs=True, file_pattern=r'^.*\%s' % file_ext)
+	file_loc = file_picker_dialog(None, root_dir=os.path.expanduser('~/Documents'), multiple=False, select_dirs=True, file_pattern=r'^.*\%s' % file_ext)
 
 	if file_loc is None:
 		appex.finish()
@@ -305,7 +306,7 @@ def file_import(get_path):
 	elif re.match(r'^.*\.\w+$', file_loc):
 		file_save(get_path, file_loc)
 	else:
-		new_file_name = console.input_alert('文件名','文件格式:' + file_ext,file_pure_name,'确认', hide_cancel_button=True)
+		new_file_name = console.input_alert('文件名','文件格式: ' + file_ext,file_pure_name,'确认', hide_cancel_button=True)
 		dstpath = os.path.join(file_loc, new_file_name + file_ext)
 		while(os.path.exists(dstpath)):
 			try:
