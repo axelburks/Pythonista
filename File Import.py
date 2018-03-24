@@ -92,7 +92,7 @@ class FileTreeNode (TreeNode):
 		self.children = sorted(children, key=attrgetter('subnode', 'leaf', 'cmp_title'))
 
 class TreeDialogController (object):
-	def __init__(self, root_node, allow_multi=False, async_mode=False):
+	def __init__(self, root_node, icloud_node=None, allow_multi=False, async_mode=False):
 		self.async_mode = async_mode
 		self.allow_multi = allow_multi
 		self.selected_entries = None
@@ -123,6 +123,7 @@ class TreeDialogController (object):
 		self.view.right_button_items = [self.done_btn]
 		self.done_btn.enabled = False
 		self.root_node = root_node
+		self.icloud_node = icloud_node
 		self.entries = []
 		self.flat_entries = []
 		if self.async_mode:
@@ -134,6 +135,9 @@ class TreeDialogController (object):
 
 	def expand_root(self):
 		tree = []
+		if self.icloud_node :
+			self.icloud_node.level = 1
+			tree.append(self.icloud_node)
 		self.root_node.level = 1
 		tree.append(self.root_node)
 		self.root_node.expand_children()
@@ -265,15 +269,19 @@ class TreeDialogController (object):
 		self.selected_entries = [self.flat_entries[i[1]] for i in self.table_view.selected_rows if self.flat_entries[i[1]].enabled]
 		self.view.close()
 
-def file_picker_dialog(title=None, root_dir=None, multiple=False,
-                       select_dirs=False, file_pattern=None, show_size=True):
+def file_picker_dialog(title=None, root_dir=None, multiple=False, select_dirs=False, file_pattern=None, show_icloud=False, show_size=True):
 	if root_dir is None:
-		root_dir = os.path.expanduser('~')
+		root_dir = os.path.expanduser('~/Documents')
 	if title is None:
 		title = os.path.split(root_dir)[1]
 	root_node = FileTreeNode(root_dir, show_size, select_dirs, file_pattern)
 	root_node.title = title or ''
-	picker = TreeDialogController(root_node, allow_multi=multiple, async_mode=True)
+	icloud_node = None
+	if show_icloud:
+		icloud_dir = os.path.expanduser('/private/var/mobile/Library/Mobile Documents/iCloud~com~omz-software~Pythonista3/Documents')
+		icloud_node = FileTreeNode(icloud_dir, show_size, select_dirs, file_pattern)
+		icloud_node.title = 'iCloud'
+	picker = TreeDialogController(root_node, icloud_node, allow_multi=multiple, async_mode=True)
 	picker.view.present('sheet')
 	picker.view.wait_modal()
 	if picker.selected_entries is None:
@@ -298,7 +306,7 @@ def file_import(get_path):
 	file_name = os.path.basename(get_path)
 	file_pure_name = os.path.splitext(file_name)[0]
 	file_ext = os.path.splitext(file_name)[-1]
-	file_loc = file_picker_dialog(None, root_dir=os.path.expanduser('~/Documents'), multiple=False, select_dirs=True, file_pattern=r'^.*\%s' % file_ext)
+	file_loc = file_picker_dialog(title=None, root_dir=None, multiple=False, select_dirs=True, file_pattern=r'^.*\%s' % file_ext, show_icloud=True)
 
 	if file_loc is None:
 		appex.finish()
