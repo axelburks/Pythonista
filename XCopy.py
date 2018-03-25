@@ -49,7 +49,7 @@ class TreeNode (object):
 		return '<TreeNode: "%s"%s>' % (self.title, ' (expanded)' if self.expanded else '')
 
 class FileTreeNode (TreeNode):
-	def __init__(self, path, show_size=True, select_dirs=True, file_pattern=None):
+	def __init__(self, path, show_info=True, select_dirs=True, file_pattern=None):
 		TreeNode.__init__(self)
 		self.path = path
 		self.title = os.path.split(path)[1]
@@ -68,9 +68,11 @@ class FileTreeNode (TreeNode):
 			self.icon_name = 'FileImage'
 		else:
 			self.icon_name = 'FileOther'
-		self.show_size = show_size
-		if not is_dir and show_size:
-			self.subtitle = human_size((os.stat(self.path).st_size))
+		self.show_info = show_info
+		if not is_dir and show_info:
+			self.subtitle = time.strftime('%Y-%m-%d %H:%M', time.localtime(os.stat(self.path).st_ctime)) + '   ' + human_size((os.stat(self.path).st_size))
+		if is_dir and show_info:
+			self.subtitle = time.strftime('%Y-%m-%d %H:%M', time.localtime(os.stat(self.path).st_ctime))
 		if is_dir and not select_dirs:
 			self.enabled = False
 		elif not is_dir:
@@ -91,7 +93,7 @@ class FileTreeNode (TreeNode):
 			if filename.startswith('.'):
 				continue
 			full_path = os.path.join(self.path, filename)
-			node = FileTreeNode(full_path, self.show_size, self.select_dirs, self.file_pattern)
+			node = FileTreeNode(full_path, self.show_info, self.select_dirs, self.file_pattern)
 			node.level = self.level + 1
 			children.append(node)
 		self.expanded = True
@@ -366,17 +368,17 @@ class TreeDialogController (object):
 		except:
 			exit()
 
-def file_picker_dialog(import_file_path=None, title=None, root_dir=None, multiple=False, select_dirs=False, file_pattern=None, show_icloud=False, show_size=True):
+def file_picker_dialog(import_file_path=None, title=None, root_dir=None, multiple=False, select_dirs=False, file_pattern=None, show_icloud=False, show_info=True):
 	if root_dir is None:
 		root_dir = os.path.expanduser('~/Documents')
 	if title is None:
 		title = os.path.split(root_dir)[1]
-	root_node = FileTreeNode(root_dir, show_size, select_dirs, file_pattern)
+	root_node = FileTreeNode(root_dir, show_info, select_dirs, file_pattern)
 	root_node.title = title or ''
 	icloud_node = None
 	if show_icloud:
 		icloud_dir = os.path.expanduser('/private/var/mobile/Library/Mobile Documents/iCloud~com~omz-software~Pythonista3/Documents')
-		icloud_node = FileTreeNode(icloud_dir, show_size, select_dirs, file_pattern)
+		icloud_node = FileTreeNode(icloud_dir, show_info, select_dirs, file_pattern)
 		icloud_node.title = 'iCloud'
 	picker = TreeDialogController(root_node, icloud_node, import_file_path=import_file_path, allow_multi=multiple, async_mode=True)
 	picker.view.present('sheet')
