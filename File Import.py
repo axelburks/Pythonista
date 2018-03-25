@@ -1,4 +1,13 @@
-import os, ui, re, appex, console, shutil, time, threading, functools 
+# Pythonista 文件导入脚本：
+# 鉴于 Pythonista 内置文件导入功能过于简单，所以...
+# 
+# - 支持存储位置选择，包括其 iCloud 和 Document 目录
+# - 选中文件夹表示存储到其中，选中文件表示直接覆盖
+# - 支持重名文件检测询问
+# 
+# https://t.me/axel_burks
+
+import os, ui, re, sys, appex, console, shutil, time, threading, functools 
 from objc_util import ObjCInstance, ObjCClass
 from operator import attrgetter
 
@@ -26,9 +35,8 @@ class TreeNode (object):
 		self.title = ''
 		self.subtitle = ''
 		self.icon_name = None
-		self.level = 1
+		self.level = 0
 		self.enabled = True
-		self.subnode = True
 
 	def expand_children(self):
 		self.expanded = True
@@ -41,8 +49,7 @@ class TreeNode (object):
 		return '<TreeNode: "%s"%s>' % (self.title, ' (expanded)' if self.expanded else '')
 
 class FileTreeNode (TreeNode):
-	def __init__(self, path, show_size=True, select_dirs=True,   
-               file_pattern=None):
+	def __init__(self, path, show_size=True, select_dirs=True, file_pattern=None):
 		TreeNode.__init__(self)
 		self.path = path
 		self.title = os.path.split(path)[1]
@@ -80,7 +87,6 @@ class FileTreeNode (TreeNode):
 			return
 		files = os.listdir(self.path)
 		children = []
-		
 		for filename in files:
 			if filename.startswith('.'):
 				continue
@@ -89,12 +95,15 @@ class FileTreeNode (TreeNode):
 			node.level = self.level + 1
 			children.append(node)
 		self.expanded = True
-		self.children = sorted(children, key=attrgetter('subnode', 'leaf', 'cmp_title'))
+		self.children = sorted(children, key=attrgetter('leaf', 'cmp_title'))
 
 class TreeDialogController (object):
-	def __init__(self, root_node, icloud_node=None, allow_multi=False, async_mode=False):
+	def __init__(self, root_node, icloud_node=None, import_file_path=None, allow_multi=False, async_mode=False):
 		self.async_mode = async_mode
 		self.allow_multi = allow_multi
+		self.import_file_path = import_file_path
+		self.multi_input = False
+		self.filename = None
 		self.selected_entries = None
 		self.table_view = ui.TableView()
 		self.table_view.frame = (0, 0, 500, 500)
@@ -105,7 +114,11 @@ class TreeDialogController (object):
 		self.table_view.tint_color = 'gray'
 		self.view = ui.View(frame=self.table_view.frame)
 		self.view.add_subview(self.table_view)
-		self.view.name = 'Choose Location'
+		if self.import_file_path[1:]:
+			self.multi_input = True
+		else:
+			self.filename = os.path.basename(import_file_path[0])
+		self.view.name = self.filename if self.filename else 'Choose Location'
 		self.busy_view = ui.View(frame=self.view.bounds, flex='WH', background_color=(0, 0, 0, 0.35))
 		hud = ui.View(frame=(self.view.center.x - 50, self.view.center.y - 50, 100, 100))
 		hud.background_color = (0, 0, 0, 0.7)
@@ -120,6 +133,11 @@ class TreeDialogController (object):
 		self.busy_view.alpha = 0.0
 		self.view.add_subview(self.busy_view)
 		self.done_btn = ui.ButtonItem(title='Done', action=self.done_action)
+		self.Rename_btn = ui.ButtonItem(title='Rename', image=ui.Image.named('iob:ios7_compose_outline_32'),action=self.rename_action)
+		if self.multi_input:
+			self.view.right_button_items = [self.done_btn]
+		else:
+			self.view.right_button_items = [self.done_btn, self.Rename_btn]
 		self.done_btn.enabled = False
 		self.root_node = root_node
 		self.icloud_node = icloud_node
@@ -139,11 +157,11 @@ class TreeDialogController (object):
 			tree.append(self.icloud_node)
 		self.root_node.level = 1
 		tree.append(self.root_node)
-		self.root_node.expand_children()
 		self.set_busy(False)
-		self.entries = tree + self.root_node.children
+		self.entries = tree
 		self.flat_entries = self.entries
 		self.table_view.reload()
+		self.toggle_dir(1)
 	
 	def flatten_entries(self, entries, dest=None):
 		if dest is None:
@@ -264,11 +282,91 @@ class TreeDialogController (object):
 			self.busy_view.alpha = 1.0 if flag else 0.0
 		ui.animate(anim)
 
+	def file_save(self, get_path, dstpath):
+		try:
+			shutil.copy(get_path, dstpath)
+		except Exception as eer:
+			print(eer)
+			console.hud_alert('Failed!','error',1)
+			
+	def dir_save(self, get_path, dstpath):
+		try:
+			shutil.copytree(get_path, dstpath)
+		except Exception as eer:
+			print(eer)
+			console.hud_alert('Failed!','error',1)
+
+	def file_process(self, get_path, selected_path):
+		if os.path.isdir(get_path):
+			dstpath = None
+			if self.multi_input:
+				dstpath = os.path.join(selected_path, os.path.basename(get_path))
+			else:
+				dstpath = os.path.join(selected_path, self.filename)
+			new_dir_name = os.path.basename(dstpath)
+			while(os.path.exists(dstpath)):
+				try:
+					result = console.alert('Duplicated Dir Name',new_dir_name,'Rename','Replace', hide_cancel_button=False)
+					if result == 1:
+						new_dir_name = console.input_alert('Rename',new_dir_name,new_dir_name,'Done', hide_cancel_button=True)
+						dstpath = os.path.join(selected_path, new_dir_name)
+						if not os.path.exists(dstpath):
+							break
+					if result == 2:
+						shutil.rmtree(dstpath)
+						break
+				except:
+					exit()
+			self.dir_save(get_path, dstpath)
+		else:
+			dstpath = None
+			if os.path.isfile(selected_path):
+				self.file_save(get_path, selected_path)
+			else:
+				if self.multi_input:
+					dstpath = os.path.join(selected_path, os.path.basename(get_path))
+				else:
+					dstpath = os.path.join(selected_path, self.filename)
+				new_file_name = os.path.splitext(os.path.basename(dstpath))[0]
+				file_ext = os.path.splitext(dstpath)[1]
+				while(os.path.exists(dstpath)):
+					try:
+						result = console.alert('Duplicated File Name',new_file_name + file_ext,'Rename','Replace', hide_cancel_button=False)
+						if result == 1:
+							new_file_name = console.input_alert('Rename',new_file_name + file_ext,new_file_name,'Done', hide_cancel_button=True)
+							dstpath = os.path.join(selected_path, new_file_name + file_ext)
+							if not os.path.exists(dstpath):
+								break
+						if result == 2:
+							break
+					except:
+						exit()
+				self.file_save(get_path, dstpath)
+	
 	def done_action(self, sender):
+		self.set_busy(False)
 		self.selected_entries = [self.flat_entries[i[1]] for i in self.table_view.selected_rows if self.flat_entries[i[1]].enabled]
+		paths = [e.path for e in self.selected_entries]
+		file_loc = paths[0]
+		if self.multi_input:
+			for x in self.import_file_path:
+				self.file_process(x, file_loc)
+		else:
+			self.file_process(self.import_file_path[0], file_loc)
+		console.hud_alert('Success!','',1)
 		self.view.close()
 	
-def file_picker_dialog(title=None, root_dir=None, multiple=False, select_dirs=False, file_pattern=None, show_icloud=False, show_size=True):
+	def rename_action(self, sender):
+		file_pure_name = os.path.splitext(self.filename)[0]
+		file_ext = os.path.splitext(self.filename)[1]
+		try:
+			new_file_name = console.input_alert('Rename',self.filename,file_pure_name,'Done', hide_cancel_button=False)
+			self.filename = new_file_name + file_ext
+			self.view.name = self.filename
+		except:
+			exit()
+
+def file_picker_dialog(import_file_path=None, title=None, root_dir=None, multiple=False, select_dirs=False, file_pattern=None, show_icloud=False, show_size=True):
 	if root_dir is None:
 		root_dir = os.path.expanduser('~/Documents')
 	if title is None:
@@ -280,68 +378,29 @@ def file_picker_dialog(title=None, root_dir=None, multiple=False, select_dirs=Fa
 		icloud_dir = os.path.expanduser('/private/var/mobile/Library/Mobile Documents/iCloud~com~omz-software~Pythonista3/Documents')
 		icloud_node = FileTreeNode(icloud_dir, show_size, select_dirs, file_pattern)
 		icloud_node.title = 'iCloud'
-	picker = TreeDialogController(root_node, icloud_node, allow_multi=multiple, async_mode=True)
+	picker = TreeDialogController(root_node, icloud_node, import_file_path=import_file_path, allow_multi=multiple, async_mode=True)
 	picker.view.present('sheet')
 	picker.view.wait_modal()
-	if picker.selected_entries is None:
-		return None
-	paths = [e.path for e in picker.selected_entries]
-	if multiple:
-		return paths
-	else:
-		return paths[0]
-
-def file_save(get_path, dstpath):
-	try:
-		shutil.copy(get_path, dstpath)
-		console.hud_alert('Success!','',1)
-		appex.finish()
-		exit()
-	except Exception as eer:
-		print(eer)
-		console.hud_alert('Failed!','error',1)
-
-def file_import(get_path):
-	file_name = os.path.basename(get_path)
-	file_pure_name = os.path.splitext(file_name)[0]
-	file_ext = os.path.splitext(file_name)[-1]
-	file_loc = file_picker_dialog(title=None, root_dir=None, multiple=False, select_dirs=True, file_pattern=r'^.*\%s' % file_ext, show_icloud=True)
-
-	if file_loc is None:
-		appex.finish()
-		exit()
-	elif re.match(r'^.*\.\w+$', file_loc):
-		file_save(get_path, file_loc)
-	else:
-		dstpath = os.path.join(file_loc, file_name)
-		new_file_name = file_pure_name
-		while(os.path.exists(dstpath)):
-			try:
-				result = console.alert('Duplicated File Name',new_file_name + file_ext,'Rename','Replace', hide_cancel_button=False)
-				if result == 1:
-					new_file_name = console.input_alert('Rename',new_file_name + file_ext,new_file_name,'Done', hide_cancel_button=True)
-					dstpath = os.path.join(file_loc, new_file_name + file_ext)
-					if not os.path.exists(dstpath):
-						break
-				if result == 2:
-					break
-			except:
-				appex.finish()
-				exit()
-		file_save(get_path, dstpath)
+	appex.finish()
+	exit()
 
 def main():
+	get_path = None
+	files_pattern = None
 	if appex.is_running_extension():
-		if appex.get_file_path():
-			get_path = appex.get_file_path()
-			file_import(get_path)
+		get_path = appex.get_file_paths()
+	if sys.argv[1:]:
+		get_path = sys.argv[1:]
+	if get_path:
+		if get_path[1:] or os.path.isdir(get_path[0]):
+			files_pattern = r'[^\.]+$'
 		else:
-			console.hud_alert('Not Supported File Types!', 'error', 2)
-			appex.finish()
-			exit()
+			file_name = os.path.basename(get_path[0])
+			file_ext = os.path.splitext(file_name)[1]
+			files_pattern=r'^.*\%s' % file_ext
+		file_picker_dialog(import_file_path=get_path, multiple=False, select_dirs=True, file_pattern=files_pattern, show_icloud=True)
 	else:
-		console.hud_alert('Please Run on Extension','error',2)
-		exit()
+		console.hud_alert('Please Run on Action Extension or Shortcut!')
 
 if __name__ == '__main__':
 	main()
