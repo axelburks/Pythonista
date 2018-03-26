@@ -289,14 +289,14 @@ class TreeDialogController (object):
 			shutil.copy(get_path, dstpath)
 		except Exception as eer:
 			print(eer)
-			console.hud_alert('Failed!','error',1)
+			console.hud_alert('Save File Failed!','error',1)
 			
 	def dir_save(self, get_path, dstpath):
 		try:
 			shutil.copytree(get_path, dstpath)
 		except Exception as eer:
 			print(eer)
-			console.hud_alert('Failed!','error',1)
+			console.hud_alert('Save Dir Failed!','error',1)
 
 	def file_process(self, get_path, selected_path):
 		if os.path.isdir(get_path):
@@ -309,16 +309,16 @@ class TreeDialogController (object):
 			while(os.path.exists(dstpath)):
 				try:
 					result = console.alert('Duplicated Dir Name',new_dir_name,'Rename','Replace', hide_cancel_button=False)
-					if result == 1:
-						new_dir_name = console.input_alert('Rename',new_dir_name,new_dir_name,'Done', hide_cancel_button=True)
-						dstpath = os.path.join(selected_path, new_dir_name)
-						if not os.path.exists(dstpath):
-							break
-					if result == 2:
-						shutil.rmtree(dstpath)
-						break
 				except:
 					exit()
+				if result == 1:
+					new_dir_name = console.input_alert('Rename',new_dir_name,new_dir_name,'Done', hide_cancel_button=True)
+					dstpath = os.path.join(selected_path, new_dir_name)
+					if not os.path.exists(dstpath):
+						break
+				if result == 2:
+					shutil.rmtree(dstpath)
+					break
 			self.dir_save(get_path, dstpath)
 		else:
 			dstpath = None
@@ -334,19 +334,18 @@ class TreeDialogController (object):
 				while(os.path.exists(dstpath)):
 					try:
 						result = console.alert('Duplicated File Name',new_file_name + file_ext,'Rename','Replace', hide_cancel_button=False)
-						if result == 1:
-							new_file_name = console.input_alert('Rename',new_file_name + file_ext,new_file_name,'Done', hide_cancel_button=True)
-							dstpath = os.path.join(selected_path, new_file_name + file_ext)
-							if not os.path.exists(dstpath):
-								break
-						if result == 2:
-							break
 					except:
 						exit()
+					if result == 1:
+						new_file_name = console.input_alert('Rename',new_file_name + file_ext,new_file_name,'Done', hide_cancel_button=True)
+						dstpath = os.path.join(selected_path, new_file_name + file_ext)
+						if not os.path.exists(dstpath):
+							break
+					if result == 2:
+						break
 				self.file_save(get_path, dstpath)
 	
-	def done_action(self, sender):
-		self.set_busy(False)
+	def done_action_thread(self, sender):
 		self.selected_entries = [self.flat_entries[i[1]] for i in self.table_view.selected_rows if self.flat_entries[i[1]].enabled]
 		paths = [e.path for e in self.selected_entries]
 		file_loc = paths[0]
@@ -357,6 +356,11 @@ class TreeDialogController (object):
 			self.file_process(self.import_file_path[0], file_loc)
 		console.hud_alert('Success!','',1)
 		self.view.close()
+
+	def done_action(self, sender):
+		self.set_busy(False)
+		d = threading.Thread(target=self.done_action_thread(sender))
+		d.start()
 	
 	def rename_action(self, sender):
 		file_pure_name = os.path.splitext(self.filename)[0]
@@ -389,10 +393,14 @@ def file_picker_dialog(import_file_path=None, title=None, root_dir=None, multipl
 def main():
 	get_path = None
 	files_pattern = None
-	if appex.is_running_extension():
+	if appex.is_running_extension() and appex.get_file_paths():
 		get_path = appex.get_file_paths()
-	if sys.argv[1:]:
+	elif sys.argv[1:]:
 		get_path = sys.argv[1:]
+	else:
+		console.hud_alert('Please Run on Action Extension or Shortcut!','error',1.5)
+		exit()
+
 	if get_path:
 		if get_path[1:] or os.path.isdir(get_path[0]):
 			files_pattern = r'[^\.]+$'
@@ -402,7 +410,7 @@ def main():
 			files_pattern=r'^.*\%s' % file_ext
 		file_picker_dialog(import_file_path=get_path, multiple=False, select_dirs=True, file_pattern=files_pattern, show_icloud=True)
 	else:
-		console.hud_alert('Please Run on Action Extension or Shortcut!')
+		console.hud_alert('Can Not Get Files!','error',1)
 
 if __name__ == '__main__':
 	main()
