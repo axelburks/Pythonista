@@ -308,7 +308,7 @@ class TreeDialogController (object):
 			new_dir_name = os.path.basename(dstpath)
 			while(os.path.exists(dstpath)):
 				try:
-					result = console.alert('Duplicated Dir Name',new_dir_name,'Rename','Replace', hide_cancel_button=False)
+					result = console.alert('Duplicated Dir Name',new_dir_name,'Rename','Replace', 'Skip', hide_cancel_button=False)
 				except:
 					exit()
 				if result == 1:
@@ -319,6 +319,8 @@ class TreeDialogController (object):
 				if result == 2:
 					shutil.rmtree(dstpath)
 					break
+				if result == 3:
+					return
 			self.dir_save(get_path, dstpath)
 		else:
 			dstpath = None
@@ -333,7 +335,7 @@ class TreeDialogController (object):
 				file_ext = os.path.splitext(dstpath)[1]
 				while(os.path.exists(dstpath)):
 					try:
-						result = console.alert('Duplicated File Name',new_file_name + file_ext,'Rename','Replace', hide_cancel_button=False)
+						result = console.alert('Duplicated File Name',new_file_name + file_ext,'Rename','Replace', 'Skip', hide_cancel_button=False)
 					except:
 						exit()
 					if result == 1:
@@ -343,6 +345,8 @@ class TreeDialogController (object):
 							break
 					if result == 2:
 						break
+					if result == 3:
+						return
 				self.file_save(get_path, dstpath)
 	
 	def done_action_thread(self, sender):
@@ -351,9 +355,12 @@ class TreeDialogController (object):
 		file_loc = paths[0]
 		if self.multi_input:
 			for x in self.import_file_path:
-				self.file_process(x, file_loc)
+				d = threading.Thread(target=self.file_process(x, file_loc))
+				d.start()
 		else:
-			self.file_process(self.import_file_path[0], file_loc)
+			d = threading.Thread(target=self.file_process(self.import_file_path[0], file_loc))
+			d.start()
+			
 		console.hud_alert('Success!','',1)
 		self.view.close()
 
@@ -370,7 +377,7 @@ class TreeDialogController (object):
 			self.filename = new_file_name + file_ext
 			self.view.name = self.filename
 		except:
-			exit()
+			return
 
 def file_picker_dialog(import_file_path=None, title=None, root_dir=None, multiple=False, select_dirs=False, file_pattern=None, show_icloud=False, show_info=True):
 	if root_dir is None:
@@ -388,7 +395,7 @@ def file_picker_dialog(import_file_path=None, title=None, root_dir=None, multipl
 	picker.view.present('sheet')
 	picker.view.wait_modal()
 	appex.finish()
-	exit()
+	return
 
 def main():
 	get_path = None
@@ -399,7 +406,7 @@ def main():
 		get_path = sys.argv[1:]
 	else:
 		console.hud_alert('Please Run on Action Extension or Shortcut!','error',1.5)
-		exit()
+		return
 
 	if get_path:
 		if get_path[1:] or os.path.isdir(get_path[0]):
@@ -411,6 +418,7 @@ def main():
 		file_picker_dialog(import_file_path=get_path, multiple=False, select_dirs=True, file_pattern=files_pattern, show_icloud=True)
 	else:
 		console.hud_alert('Can Not Get Files!','error',1)
+		exit()
 
 if __name__ == '__main__':
 	main()
