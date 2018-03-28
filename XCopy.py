@@ -1,10 +1,12 @@
-# Pythonista 文件导入脚本：
-# 鉴于 Pythonista 内置文件导入功能过于简单，所以...
+#   XCopy：
 # 
 # - 支持存储位置选择，包括其 iCloud 和 Document 目录
 # - 选中文件夹表示存储到其中，选中文件表示直接覆盖
+# - 支持程序内文件（夹）复制
 # - 支持重名文件检测询问
-# 
+# - 支持多文件（夹）
+# - 支持主动重命名
+
 # https://t.me/axel_burks
 
 import os, ui, re, sys, appex, console, shutil, time, threading, functools 
@@ -290,6 +292,7 @@ class TreeDialogController (object):
 		except Exception as eer:
 			print(eer)
 			console.hud_alert('Save File Failed!','error',1)
+			exit()
 			
 	def dir_save(self, get_path, dstpath):
 		try:
@@ -297,6 +300,7 @@ class TreeDialogController (object):
 		except Exception as eer:
 			print(eer)
 			console.hud_alert('Save Dir Failed!','error',1)
+			exit()
 
 	def file_process(self, get_path, selected_path):
 		if os.path.isdir(get_path):
@@ -416,6 +420,7 @@ def main():
 			file_ext = os.path.splitext(file_name)[1]
 			files_pattern=r'^.*\%s' % file_ext
 		file_picker_dialog(import_file_path=get_path, multiple=False, select_dirs=True, file_pattern=files_pattern, show_icloud=True)
+		exit()
 	else:
 		console.hud_alert('Can Not Get Files!','error',1)
 		exit()
