@@ -2,7 +2,7 @@ import os, ui, re, html, difflib, dialogs
 
 class HtmlDiff(object):
 	def __init__(self, a, b):
-		self.diff = [line for line in difflib.ndiff(html.escape(a).splitlines(), html.escape(b).splitlines())]
+		self.diff = [line for line in difflib.ndiff(html.escape(a,quote=False).splitlines(), html.escape(b,quote=False).splitlines())]
 		self.html = self.diff_to_html(self.diff)
 		self.css = '''<style>body {margin:0 0} .t {display:table; width:100%; padding:0} .tr {display:table-row;} pre {font:12px Consolas, "Liberation Mono", Menlo, Courier, monospace; color: #666666; white-space:pre-wrap; tab-size:4}      .plus {background-color:#a6f3a6; border-radius:1px; border-bottom:2px solid #5aee5a; } .minus {background-color:#f8cbcb; border-radius:1px; border-bottom:2px solid #ee5a5a;} .normal, .red, .green{display:table-cell; width:5%; color:grey; font-family: courier; font-size:10pt; margin:0 5px; text-align:right;} .normal {background-color: #fdfdfd; border-right: 1px solid #eee} .red {background-color: #ffdddd; border-right: 1px solid #f1c0c0} .green {background-color: #dbffdb; border-right:1px solid #c1e9c1} .redmain {display:table-cell; background-color: #ffecec;} .greenmain {display:table-cell; background-color: #eaffea;} .normalmain {display:table-cell; background-color: #fdfdfd;} div {padding:4px 4px}</style>'''
 		
@@ -40,17 +40,18 @@ if __name__ == '__main__':
 	
 	file_list = os.listdir(os.getcwd())
 	file_a = dialogs.list_dialog('Pick File A (old version)', file_list)
-	file_list.remove(file_a)
-	file_b = dialogs.list_dialog('Pick File B (new version)', file_list)
-
-	with open(file_a, 'r', encoding='utf-8') as file:
-		file_a_text = file.read()
-	with open(file_b, 'r', encoding='utf-8') as file:
-		file_b_text = file.read()
+	if file_a:
+		file_list.remove(file_a)
+		file_b = dialogs.list_dialog('Pick File B (new version)', file_list)
+		if file_b:
+			with open(file_a, 'r', encoding='utf-8') as file:
+				file_a_text = file.read()
+			with open(file_b, 'r', encoding='utf-8') as file:
+				file_b_text = file.read()
 		
-	html = HtmlDiff(file_a_text, file_b_text).output()
-	
-	w = ui.WebView()
-	w.load_html(html)
-	w.scales_page_to_fit = True
-	w.present()
+				html = HtmlDiff(file_a_text, file_b_text).output()
+				
+				w = ui.WebView()
+				w.load_html(html)
+				w.scales_page_to_fit = True
+				w.present()
