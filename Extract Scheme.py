@@ -50,9 +50,10 @@ def main():
 	else:
 		url_schemes = extract_scheme(plist)
 		if url_schemes:
-			result = dialogs.list_dialog('Select to Clips', url_schemes)
+			result = dialogs.list_dialog('Select to Clips', url_schemes, multiple=True)
 			if result:
-				clipboard.set(result + '://')
+				text = '\n'.join([elem + '://' for elem in result])
+				clipboard.set(text)
 				console.hud_alert('Copied Success!','',1)
 				appex.finish()
 				exit()
